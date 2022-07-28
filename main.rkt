@@ -2,6 +2,12 @@
 
 #|
     https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html
+    Differences:
+    - [3.3] [P] Unicode escapes are not converted before lexing.
+    - [3.8] [B] I am using the default alphabetic character class for identifiers, and
+      have not ensured that all unicode "letters" are allowed.  If you find a
+      unicode value that is not accepted as an identifier and it passes the
+      criteria for "JavaLetter" it is a bug in this lexer.
 |#
 
 (require (prefix-in - syntax/readerr)
@@ -43,6 +49,22 @@
 (struct opener token () #:transparent)
 (struct closer token () #:transparent)
 
+(define skip-trad-comment
+  (let ()
+    (define (eof-error) (raise-read-eof-error "eof in comment"))
+    (define comment-tail
+      (lexer
+        [(eof) (eof-error)]
+        [#\*   (comment-tail-star input-port)]
+        [any-char (comment-tail input-port)]))
+    (define comment-tail-star
+      (lexer
+        [(eof) (eof-error)]
+        [#\/ (lex-c-expr input-port)]
+        [#\* (comment-tail-star input-port)]
+        [any-char (comment-tail input-port)]))
+    comment-tail))
+
 (define lex-c-expr
   (let ()
     (define-syntax-rule ($token maker value)
@@ -56,6 +78,7 @@
       [(:+ whitespace) (lex-c-expr input-port)]
       ;; comments
       [(:: "//" (:* (:~ #\newline))) (lex-c-expr input-port)]
+      [(:: "/*") (skip-trad-comment input-port)]
 
       ;; identifiers
       [(:: (:or #\$ #\_ alphabetic)

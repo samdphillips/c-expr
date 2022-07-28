@@ -45,4 +45,12 @@
   class Foo { }
   class Foo2 { }
   }
+
+  @test-lex["traditional comment [3.7]"]{
+    /* this comment /* // /** ends here: */
+  }
+  @test-lex["traditional comment [3.7] - ids"
+            (id _ 'a) (id _ 'b)]{
+    a /* this is a comment here */ b
+  }
 )
