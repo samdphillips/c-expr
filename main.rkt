@@ -8,6 +8,10 @@
       have not ensured that all unicode "letters" are allowed.  If you find a
       unicode value that is not accepted as an identifier and it passes the
       criteria for "JavaLetter" it is a bug in this lexer.
+    - [3.9] [X] There are no reserved keywords at the lexer level.
+    - [3.10] [X] There are no boolean or null literals at the lexer level.
+    - [3.10.1] [?] Integer type suffixes are ignored
+    - [3.10.1] [P] Octal literals start with '0o' or '0O'
 |#
 
 (require (prefix-in - syntax/readerr)
@@ -16,12 +20,7 @@
          racket/match
          syntax/srcloc)
 
-(provide lex-c-expr
-         (struct-out token)
-         (struct-out id)
-         (struct-out opener)
-         (struct-out closer)
-         )
+(provide lex-c-expr)
 
 (define (->srcloc source pos)
   (and pos
@@ -45,25 +44,13 @@
   (make-raise-read-error -raise-read-eof-error))
 
 (struct token (srcloc value) #:transparent)
-(struct id token () #:transparent)
-(struct opener token () #:transparent)
-(struct closer token () #:transparent)
-
-(define skip-trad-comment
-  (let ()
-    (define (eof-error) (raise-read-eof-error "eof in comment"))
-    (define comment-tail
-      (lexer
-        [(eof) (eof-error)]
-        [#\*   (comment-tail-star input-port)]
-        [any-char (comment-tail input-port)]))
-    (define comment-tail-star
-      (lexer
-        [(eof) (eof-error)]
-        [#\/ (lex-c-expr input-port)]
-        [#\* (comment-tail-star input-port)]
-        [any-char (comment-tail input-port)]))
-    comment-tail))
+(define-syntax-rule (define-token name)
+  (begin (struct name token () #:transparent)
+         (provide (struct-out name))))
+(define-token id)
+(define-token literal)
+(define-token opener)
+(define-token closer)
 
 (define lex-c-expr
   (let ()
@@ -85,6 +72,10 @@
            (:* (:or #\$ #\_ alphabetic numeric)))
        ($token id (string->symbol lexeme))]
 
+      ;; [3.10.1] Integer literals
+      [(:: numeric (:* (:or #\_ numeric)) (:? (:or #\L #\l)))
+       ($token literal (integer-literal->integer lexeme 10))]
+
       ;; openers
       [(:or #\( #\{ #\[)
        ($token opener lexeme)]
@@ -96,5 +87,33 @@
       ;; error
       [any-char (raise-read-error
                  (format "No match found for input starting with: ~s" lexeme)
-                 (->srcloc input-port start-pos))]
-  )))
+                 (->srcloc input-port start-pos))])))
+
+(define skip-trad-comment
+  (let ()
+    (define (eof-error) (raise-read-eof-error "eof in comment"))
+    (define comment-tail
+      (lexer
+        [(eof) (eof-error)]
+        [#\*   (comment-tail-star input-port)]
+        [any-char (comment-tail input-port)]))
+    (define comment-tail-star
+      (lexer
+        [(eof) (eof-error)]
+        [#\/ (lex-c-expr input-port)]
+        [#\* (comment-tail-star input-port)]
+        [any-char (comment-tail input-port)]))
+    comment-tail))
+
+(define ZERO (char->integer #\0))
+(define (cdelta ch v) (- (char->integer ch) v))
+
+(define (integer-literal->integer str base)
+  (define char-value
+    (match base
+     [10 (lambda (c) (cdelta c ZERO))]))
+  (for/fold ([v 0]) ([c (in-string str)]
+                     #:unless (or (char=? c #\_) 
+                                  (char=? c #\L)
+                                  (char=? c #\l)))
+    (+ (* base v) (char-value c))))

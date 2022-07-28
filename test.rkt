@@ -53,4 +53,10 @@
             (id _ 'a) (id _ 'b)]{
     a /* this is a comment here */ b
   }
+  @test-lex["integer literals [3.10.1] - decimal"
+            (literal _ 1234) (literal _ 123456)
+            (literal _ 123) (literal _ 123)
+            (literal _ 123456) (literal _ 123456)]{
+    1234 123_456 123l 123L 123_456l 123_456L
+  }
 )
