@@ -1,6 +1,11 @@
 #lang racket/base
 
+#|
+    https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html
+|#
+
 (require (prefix-in - syntax/readerr)
+         (prefix-in : parser-tools/lex-sre)
          parser-tools/lex
          racket/match
          syntax/srcloc)
@@ -47,6 +52,25 @@
              value))
     (lexer
       [(eof) eof]
+      ;; whitespace
+      [(:+ whitespace) (lex-c-expr input-port)]
+      ;; comments
+      [(:: "//" (:* (:~ #\newline))) (lex-c-expr input-port)]
+
+      ;; identifiers
+      [(:: (:or #\$ #\_ alphabetic)
+           (:* (:or #\$ #\_ alphabetic numeric)))
+       ($token id (string->symbol lexeme))]
+
+      ;; openers
+      [(:or #\( #\{ #\[)
+       ($token opener lexeme)]
+
+      ;; closers
+      [(:or #\) #\} #\])
+       ($token closer lexeme)]
+
+      ;; error
       [any-char (raise-read-error
                  (format "No match found for input starting with: ~s" lexeme)
                  (->srcloc input-port start-pos))]
