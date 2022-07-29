@@ -10,13 +10,16 @@
       criteria for "JavaLetter" it is a bug in this lexer.
     - [3.9] [X] There are no reserved keywords at the lexer level.
     - [3.10] [X] There are no boolean or null literals at the lexer level.
-    - [3.10.1] [?] Integer type suffixes are ignored
     - [3.10.1] [P] Octal literals start with '0o' or '0O'
+    - [3.10.1] [?] Integer type suffixes are ignored
     - [3.10.1] [X] Literals integers do not have a fixed range.
     - [3.10.1] [X] Hexadecimal, octal, and binary integer literals are not in
       twos-complement encoding.
     - [3.10.1] [X] Hexadecimal, octal, and binary integer literals are allowed
       to have a leading `-` for negative values.
+    - [3.10.2] [P] Floating point literals are not implemented.
+    - [3.10.4] [P] Octal escapes are not supported.
+    - [3.10.4] [X] Unicode escapes are handled in characters
 |#
 
 (require (prefix-in - syntax/readerr)
@@ -98,6 +101,17 @@
        (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
          ($token literal (integer-literal->integer lexeme neg? (if neg? 3 2) 2)))]
 
+      ;; [3.10.4] Character literals
+      ;;     unescaped
+      [(:: #\' (:~ #\\ #\' #\newline #\return) #\')
+       ($token literal (string-ref lexeme 1))]
+      ;;     char escapes
+      [(:: #\' #\\ (char-set "btnfr\"'\\") #\')
+       ($token literal (escape-ref (string-ref lexeme 2)))]
+      ;;     unicode escapes
+      [(:: #\' #\\ #\u (:= 4 hexdigit) #\')
+       ($token literal (integer->char (string->number (substring lexeme 3 7) 16)))]
+
       ;; openers
       [(:or #\( #\{ #\[)
        ($token opener lexeme)]
@@ -148,3 +162,13 @@
                           (char=? c #\L)
                           (char=? c #\l)))
     (+ (* base v) (char-value c))))
+
+(define escape-ref
+  (let ([escapes
+           (hash #\b #\backspace
+                 #\t #\tab
+                 #\n #\newline
+                 #\f #\page
+                 #\r #\return)])
+    (lambda (ch)
+      (hash-ref escapes ch ch))))

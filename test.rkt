@@ -84,4 +84,10 @@
             (literal _ 2) (literal _ -3)]{
     0b10 -0b11
   }
+
+  @test-lex["character literals [3.10.4]"
+            (literal _ #\a) (literal _ #\3)
+            (literal _ #\newline) (literal _ #\newline)]{
+    'a' '3' '\n' '\u000a'
+  }
 )
