@@ -90,4 +90,10 @@
             (literal _ #\newline) (literal _ #\newline)]{
     'a' '3' '\n' '\u000a'
   }
+
+  @test-lex["string literals [3.10.5]"
+            (literal _ "abcdefg") (literal _ "") (literal _ "\"")
+            (literal _ "\n\n") (literal _ "\n")]{
+    "abcdefg" "" "\"" "\n\n" "\u000a"
+  }
 )

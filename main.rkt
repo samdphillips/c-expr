@@ -9,7 +9,6 @@
       unicode value that is not accepted as an identifier and it passes the
       criteria for "JavaLetter" it is a bug in this lexer.
     - [3.9] [X] There are no reserved keywords at the lexer level.
-    - [3.10] [X] There are no boolean or null literals at the lexer level.
     - [3.10.1] [P] Octal literals start with '0o' or '0O'
     - [3.10.1] [?] Integer type suffixes are ignored
     - [3.10.1] [X] Literals integers do not have a fixed range.
@@ -18,8 +17,15 @@
     - [3.10.1] [X] Hexadecimal, octal, and binary integer literals are allowed
       to have a leading `-` for negative values.
     - [3.10.2] [P] Floating point literals are not implemented.
-    - [3.10.4] [P] Octal escapes are not supported.
-    - [3.10.4] [X] Unicode escapes are handled in characters
+    - [3.10.3] [X] There are no boolean literals at the lexer level.
+    - [3.10.5] [X] String literals are allowed to contain line terminators.
+    - [3.10.6] [P] Octal escapes are not supported in strings or character literals.
+    - [3.10.6] [X] Unicode escapes are handled in string and character literals.
+    - [3.10.6] [P] UTF-16 surrogate pairs are not supported.
+    - [3.10.7] [X] There is no null literal at the lexer level.
+
+    TODO:
+    - add \UXXXXXXXX to encode code points greater than 16 bits
 |#
 
 (require (prefix-in - syntax/readerr)
@@ -112,6 +118,9 @@
       [(:: #\' #\\ #\u (:= 4 hexdigit) #\')
        ($token literal (integer->char (string->number (substring lexeme 3 7) 16)))]
 
+      ;; [3.10.5] String Literals
+      [(:: #\") (lex-string start-pos input-port)]
+
       ;; openers
       [(:or #\( #\{ #\[)
        ($token opener lexeme)]
@@ -162,6 +171,35 @@
                           (char=? c #\L)
                           (char=? c #\l)))
     (+ (* base v) (char-value c))))
+
+(define (lex-string start-pos input-port)
+  (define buf (open-output-string))
+  (define (buffer-add! s)
+    (write-string s buf)
+    (lex input-port))
+  (define (buffer-finalize end-pos)
+    (close-output-port buf)
+    (literal (build-source-location-vector
+               (->srcloc input-port start-pos)
+               (->srcloc input-port end-pos))
+             (get-output-string buf)))
+  (define lex
+    (lexer
+      [(eof) (raise-read-eof-error "eof in string")]
+      [(:+ (:~ #\\ #\")) (buffer-add! lexeme)]
+      [(:: #\\ (char-set "btnfr\"'\\"))
+       (buffer-add! (string (escape-ref (string-ref lexeme 1))))]
+      [(:: #\\ #\u (:= 4 hexdigit))
+       (buffer-add! (string (integer->char (string->number (substring lexeme 2) 16))))]
+      [(:: #\\ any-char)
+       (raise-read-error
+         (format "unknown string escape: ~a" lexeme)
+         (build-source-location-vector
+           (->srcloc input-port start-pos)
+           (->srcloc input-port end-pos)))]
+      [#\" (buffer-finalize end-pos)]
+      ))
+  (lex input-port))
 
 (define escape-ref
   (let ([escapes
