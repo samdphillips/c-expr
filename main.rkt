@@ -73,8 +73,9 @@
        ($token id (string->symbol lexeme))]
 
       ;; [3.10.1] Integer literals
-      [(:: numeric (:* (:or #\_ numeric)) (:? (:or #\L #\l)))
-       ($token literal (integer-literal->integer lexeme 10))]
+      [(:: (:? #\-) numeric (:* (:or #\_ numeric)) (:? (:or #\L #\l)))
+       (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
+         ($token literal (integer-literal->integer lexeme neg? (if neg? 1 0) 10)))]
 
       ;; openers
       [(:or #\( #\{ #\[)
@@ -105,14 +106,15 @@
         [any-char (comment-tail input-port)]))
     comment-tail))
 
-(define ZERO (char->integer #\0))
+(define ch0 (char->integer #\0))
 (define (cdelta ch v) (- (char->integer ch) v))
 
-(define (integer-literal->integer str base)
+(define (integer-literal->integer str neg? skip base)
   (define char-value
     (match base
-     [10 (lambda (c) (cdelta c ZERO))]))
-  (for/fold ([v 0]) ([c (in-string str)]
+     [10 (lambda (c) (cdelta c ch0))]))
+  (for/fold ([v 0] #:result (if neg? (- v) v)) 
+            ([c (in-string str skip)]
                      #:unless (or (char=? c #\_) 
                                   (char=? c #\L)
                                   (char=? c #\l)))
