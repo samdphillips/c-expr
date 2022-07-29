@@ -60,4 +60,16 @@
             (literal _ -123) (literal _ -1234)]{
     1234 123_456 123l 123L 123_456l 123_456L -123 -1234L
   }
+  @test-lex["integer literals [3.10.1] - simple hexadecimal"
+            (literal _ 255) (literal _ -255) (literal _ 255) (literal _ 255)
+            (literal _ 170)]{
+    0xfF -0xFf 0xfFl 0xFfL 0xAa
+  }
+  @test-lex["integer literals [3.10.1] - more hexadecimal"
+            (literal _ 3671771902) (literal _ 3671771902) 
+            (literal _ 3671771902) (literal _ 3671771902) 
+            (literal _ 51966) (literal _ 51966) 
+            (literal _ 3671771902) (literal _ -3671771902)]{
+    0xDada_Cafe 0XDada_Cafe 0xdada_cafe 0Xdada_cafe 0xcafeL 0xcafel 0xdadacafe -0xdada_cafe
+  }
 )

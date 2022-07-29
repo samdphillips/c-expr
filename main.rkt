@@ -12,6 +12,11 @@
     - [3.10] [X] There are no boolean or null literals at the lexer level.
     - [3.10.1] [?] Integer type suffixes are ignored
     - [3.10.1] [P] Octal literals start with '0o' or '0O'
+    - [3.10.1] [X] Literals integers do not have a fixed range.
+    - [3.10.1] [X] Hexadecimal, octal, and binary integer literals are not in
+      twos-complement encoding.
+    - [3.10.1] [X] Hexadecimal, octal, and binary integer literals are allowed
+      to have a leading `-` for negative values.
 |#
 
 (require (prefix-in - syntax/readerr)
@@ -52,6 +57,8 @@
 (define-token opener)
 (define-token closer)
 
+(define-lex-abbrev hexdigit (:or numeric (:/ "AF" "af")))
+
 (define lex-c-expr
   (let ()
     (define-syntax-rule ($token maker value)
@@ -76,6 +83,9 @@
       [(:: (:? #\-) numeric (:* (:or #\_ numeric)) (:? (:or #\L #\l)))
        (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
          ($token literal (integer-literal->integer lexeme neg? (if neg? 1 0) 10)))]
+      [(:: (:? #\-) #\0 (:or #\x #\X) (:+ (:or #\_ hexdigit)) (:? (:or #\L #\l)))
+       (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
+         ($token literal (integer-literal->integer lexeme neg? (if neg? 3 2) 16)))]
 
       ;; openers
       [(:or #\( #\{ #\[)
@@ -107,15 +117,22 @@
     comment-tail))
 
 (define ch0 (char->integer #\0))
-(define (cdelta ch v) (- (char->integer ch) v))
+(define chA (char->integer #\A))
+(define cha (char->integer #\a))
 
 (define (integer-literal->integer str neg? skip base)
   (define char-value
     (match base
-     [10 (lambda (c) (cdelta c ch0))]))
+     [10 (lambda (c) (- (char->integer c) ch0))]
+     [16 (lambda (c)
+           (let ([c (char->integer c)])
+             (cond
+              [(>= c cha) (+ 10 (- c cha))]
+              [(>= c chA) (+ 10 (- c chA))]
+              [else (- c ch0)])))]))
   (for/fold ([v 0] #:result (if neg? (- v) v)) 
             ([c (in-string str skip)]
-                     #:unless (or (char=? c #\_) 
-                                  (char=? c #\L)
-                                  (char=? c #\l)))
+             #:unless (or (char=? c #\_)
+                          (char=? c #\L)
+                          (char=? c #\l)))
     (+ (* base v) (char-value c))))
