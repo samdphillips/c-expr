@@ -58,6 +58,7 @@
 (define-token closer)
 
 (define-lex-abbrev hexdigit (:or numeric (:/ "AF" "af")))
+(define-lex-abbrev octdigit (:/ "07"))
 
 (define lex-c-expr
   (let ()
@@ -80,12 +81,22 @@
        ($token id (string->symbol lexeme))]
 
       ;; [3.10.1] Integer literals
+      ;;   decimal integers
       [(:: (:? #\-) numeric (:* (:or #\_ numeric)) (:? (:or #\L #\l)))
        (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
          ($token literal (integer-literal->integer lexeme neg? (if neg? 1 0) 10)))]
+      ;;   hexadecimal integers
       [(:: (:? #\-) #\0 (:or #\x #\X) (:+ (:or #\_ hexdigit)) (:? (:or #\L #\l)))
        (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
          ($token literal (integer-literal->integer lexeme neg? (if neg? 3 2) 16)))]
+      ;;   octal integers
+      [(:: (:? #\-) #\0 (:or #\o #\O) (:+ (:or #\_ octdigit)) (:? (:or #\L #\l)))
+       (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
+         ($token literal (integer-literal->integer lexeme neg? (if neg? 3 2) 8)))]
+      ;;   binary integers
+      [(:: (:? #\-) #\0 (:or #\b #\B) (:+ (:or #\_ #\0 #\1)) (:? (:or #\L #\l)))
+       (let ([neg? (if (char=? #\- (string-ref lexeme 0)) #t #f)])
+         ($token literal (integer-literal->integer lexeme neg? (if neg? 3 2) 2)))]
 
       ;; openers
       [(:or #\( #\{ #\[)
@@ -123,7 +134,8 @@
 (define (integer-literal->integer str neg? skip base)
   (define char-value
     (match base
-     [10 (lambda (c) (- (char->integer c) ch0))]
+     [(or 2 8 10)
+      (lambda (c) (- (char->integer c) ch0))]
      [16 (lambda (c)
            (let ([c (char->integer c)])
              (cond

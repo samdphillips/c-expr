@@ -53,6 +53,7 @@
             (id _ 'a) (id _ 'b)]{
     a /* this is a comment here */ b
   }
+
   @test-lex["integer literals [3.10.1] - decimal"
             (literal _ 1234) (literal _ 123456)
             (literal _ 123) (literal _ 123)
@@ -60,6 +61,7 @@
             (literal _ -123) (literal _ -1234)]{
     1234 123_456 123l 123L 123_456l 123_456L -123 -1234L
   }
+
   @test-lex["integer literals [3.10.1] - simple hexadecimal"
             (literal _ 255) (literal _ -255) (literal _ 255) (literal _ 255)
             (literal _ 170)]{
@@ -71,5 +73,15 @@
             (literal _ 51966) (literal _ 51966) 
             (literal _ 3671771902) (literal _ -3671771902)]{
     0xDada_Cafe 0XDada_Cafe 0xdada_cafe 0Xdada_cafe 0xcafeL 0xcafel 0xdadacafe -0xdada_cafe
+  }
+
+  @test-lex["integer literals [3.10.1] - octal"
+            (literal _ 10) (literal _ -10)]{
+    0o12 -0o12
+  }
+
+  @test-lex["integer literals [3.10.1] - octal"
+            (literal _ 2) (literal _ -3)]{
+    0b10 -0b11
   }
 )
