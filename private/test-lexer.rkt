@@ -1,7 +1,7 @@
 #lang at-exp racket/base
 
 (require (for-syntax racket/base)
-         c-expr
+         c-expr/private/lexer
          racket/format
          racket/port
          racket/sequence
