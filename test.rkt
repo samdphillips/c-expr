@@ -12,6 +12,8 @@
   (define-syntax-class token-pat 
     [pattern (name:id srcloc-pat value-pat)]))
 
+;; This tries to make a port from the input strings to make more useful error
+;; reporting.  Maybe this is overkill...
 (define-syntax-parse-rule (test-lex name:str tokens:token-pat ... input:str ...)
   #:with (input0 . _) #'(input ...)
   #:do [(define (x f) (datum->syntax #'input0 (f #'input0) #'input0))]
@@ -95,5 +97,26 @@
             (literal _ "abcdefg") (literal _ "") (literal _ "\"")
             (literal _ "\n\n") (literal _ "\n")]{
     "abcdefg" "" "\"" "\n\n" "\u000a"
+  }
+
+  @test-lex["separators [3.11]"
+            (separator _ ";") (separator _ ",")]{
+    ; , 
+  }
+  
+  @test-lex["operators [3.12]"
+            (operator _ '|.|) (operator _ '..) (operator _ '=) (operator _ '>)
+            (operator _ '<) (operator _ '!) (operator _ '~) (operator _ '?)
+            (operator _ ':) (operator _ '->) (operator _ '==) (operator _ '>=)
+            (operator _ '<=) (operator _ '!=) (operator _ '&&) (operator _ '\|\|)
+            (operator _ '++) (operator _ '--) (operator _ '+) (operator _ '-)
+            (operator _ '*) (operator _ '/) (operator _ '&) (operator _ '\|)
+            (operator _ '^) (operator _ '%) (operator _ '<<) (operator _ '>>)
+            (operator _ '+=) (operator _ '-=) (operator _ '*=) (operator _ '/=)
+            (operator _ '&=) (operator _ '\|=) (operator _ '^=) (operator _ '%=)]{
+    . .. =   >   <   !   ~   ?   :   ->
+    ==  >=  <=  !=  &&  ||  ++  --
+    +   -   *   /   &   |   ^   %   <<   >>
+    +=  -=  *=  /=  &=  |=  ^=  %=
   }
 )

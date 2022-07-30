@@ -23,9 +23,13 @@
     - [3.10.6] [X] Unicode escapes are handled in string and character literals.
     - [3.10.6] [P] UTF-16 surrogate pairs are not supported.
     - [3.10.7] [X] There is no null literal at the lexer level.
+    - [3.11] [P] Separators ... @ :: are not implemented
+    - [3.11] [X] Separator . is treated as an operator
+    - [3.12] [X] Operators are any string of operator characters.
 
     TODO:
     - add \UXXXXXXXX to encode code points greater than 16 bits
+    - escape to Racket reader ala Shrubbery notation #{}
 |#
 
 (require (prefix-in - syntax/readerr)
@@ -65,6 +69,8 @@
 (define-token literal)
 (define-token opener)
 (define-token closer)
+(define-token separator)
+(define-token operator)
 
 (define-lex-abbrev hexdigit (:or numeric (:/ "AF" "af")))
 (define-lex-abbrev octdigit (:/ "07"))
@@ -121,13 +127,17 @@
       ;; [3.10.5] String Literals
       [(:: #\") (lex-string start-pos input-port)]
 
-      ;; openers
-      [(:or #\( #\{ #\[)
-       ($token opener lexeme)]
+      ;; [3.11] Separators
+      ;;     openers
+      [(:or #\( #\{ #\[) ($token opener lexeme)]
+      ;;     closers
+      [(:or #\) #\} #\]) ($token closer lexeme)]
+      ;;     other punctuators
+      [(:or #\; #\,) ($token separator lexeme)]
 
-      ;; closers
-      [(:or #\) #\} #\])
-       ($token closer lexeme)]
+      ;; [3.12] Operators
+      [(:or (:** 1 2 #\.) (:+ (char-set "<>?/:!%^&*-+=|~")))
+       ($token operator (string->symbol lexeme))]
 
       ;; error
       [any-char (raise-read-error
