@@ -34,7 +34,7 @@
                                #t
                                #:name source))
         (port-count-lines! inp)
-        (define actual (sequence->list (in-port lex-c-expr inp)))
+        (define actual (sequence->list (in-port lex-token inp)))
         (close-input-port inp)
         actual)
       (list tokens ...))))
@@ -119,4 +119,24 @@
     +   -   *   /   &   |   ^   %   <<   >>
     +=  -=  *=  /=  &=  |=  ^=  %=
   }
+
+  (test-case "peek-token"
+    (define-values (p0 r0 p1 r1)
+      (call-with-input-string "// test \n1234 int"
+        (lambda (inp)
+          (define a (peek-token inp))
+          (define b (lex-token inp))
+          (define c (peek-token inp))
+          (define d (lex-token inp))
+          (values a b c d))))
+    (check-match p0 (literal _ 1234))
+    (check-match r0 (literal _ 1234))
+    (check-match p1 (id _ int))
+    (check-match r1 (id _ int)))
+
+  (test-case "peek-token error"
+    (check-false
+      (call-with-input-string @~a{"incomplete string}
+        (lambda (inp)
+          (peek-token inp)))))
 )

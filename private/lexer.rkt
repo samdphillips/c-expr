@@ -36,9 +36,11 @@
          (prefix-in : parser-tools/lex-sre)
          parser-tools/lex
          racket/match
+         racket/port
          syntax/srcloc)
 
-(provide lex-c-expr)
+(provide lex-token
+         peek-token)
 
 (define (->srcloc source pos)
   (and pos
@@ -75,7 +77,7 @@
 (define-lex-abbrev hexdigit (:or numeric (:/ "AF" "af")))
 (define-lex-abbrev octdigit (:/ "07"))
 
-(define lex-c-expr
+(define lex-token
   (let ()
     (define-syntax-rule ($token maker value)
       (maker (build-source-location-vector
@@ -85,9 +87,9 @@
     (lexer
       [(eof) eof]
       ;; whitespace
-      [(:+ whitespace) (lex-c-expr input-port)]
+      [(:+ whitespace) (lex-token input-port)]
       ;; comments
-      [(:: "//" (:* (:~ #\newline))) (lex-c-expr input-port)]
+      [(:: "//" (:* (:~ #\newline))) (lex-token input-port)]
       [(:: "/*") (skip-trad-comment input-port)]
 
       ;; identifiers
@@ -144,18 +146,27 @@
                  (format "No match found for input starting with: ~s" lexeme)
                  (->srcloc input-port start-pos))])))
 
+(define (peek-token inp)
+  (define peek-inp (peeking-input-port inp))
+  (dynamic-wind
+    void
+    (lambda ()
+      (with-handlers* ([exn:fail:read? (lambda (e) #f)])
+        (lex-token peek-inp)))
+    (lambda () (close-input-port peek-inp))))
+
 (define skip-trad-comment
   (let ()
-    (define (eof-error) (raise-read-eof-error "eof in comment"))
+    (define (eof-error srcloc) (raise-read-eof-error "eof in comment" srcloc))
     (define comment-tail
       (lexer
-        [(eof) (eof-error)]
+        [(eof) (eof-error (->srcloc input-port start-pos))]
         [#\*   (comment-tail-star input-port)]
         [any-char (comment-tail input-port)]))
     (define comment-tail-star
       (lexer
-        [(eof) (eof-error)]
-        [#\/ (lex-c-expr input-port)]
+        [(eof) (eof-error (->srcloc input-port start-pos))]
+        [#\/ (lex-token input-port)]
         [#\* (comment-tail-star input-port)]
         [any-char (comment-tail input-port)]))
     comment-tail))
@@ -195,7 +206,7 @@
              (get-output-string buf)))
   (define lex
     (lexer
-      [(eof) (raise-read-eof-error "eof in string")]
+      [(eof) (raise-read-eof-error "eof in string" (->srcloc input-port start-pos))]
       [(:+ (:~ #\\ #\")) (buffer-add! lexeme)]
       [(:: #\\ (char-set "btnfr\"'\\"))
        (buffer-add! (string (escape-ref (string-ref lexeme 1))))]
