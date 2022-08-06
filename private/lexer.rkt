@@ -40,7 +40,9 @@
          syntax/srcloc)
 
 (provide lex-token
-         peek-token)
+         peek-token
+         token-srcloc
+         token-value)
 
 (define (->srcloc source pos)
   (and pos
