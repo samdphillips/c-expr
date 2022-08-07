@@ -5,14 +5,6 @@
          racket/syntax-srcloc
          syntax/srcloc)
 
-(define (shape-name s)
-  (match s
-    ["(" 'parens]))
-
-(define (shape-closer shp)
-  (match shp
-    ['parens ")"]))
-
 (define (stx-cons v-srcloc v vs)
   (unless (syntax? vs)
     (error 'stx-cons "expect syntax? as second arg got: ~s" vs))
@@ -36,10 +28,10 @@
               (read-term)))
   (define (read-compound)
     (define tok (lex))
-    (define shape (shape-name (token-value tok)))
+    (define shape (token-value tok))
     (define (match-closer? tok)
       (match tok
-        [(closer _ (== (shape-closer shape))) #t]
+        [(closer _ (== shape)) #t]
         [_ #f]))
     (define (read-subgroups)
       (define ptok (peek))

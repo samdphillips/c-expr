@@ -41,8 +41,8 @@
 
 (module* test #f
   @test-lex["basic lex"
-            (id _ 'class) (id _ 'Foo) (opener _ "{") (closer _ "}")
-            (id _ 'class) (id _ 'Foo2) (opener _ "{") (closer _ "}")]{
+            (id _ 'class) (id _ 'Foo) (opener _ 'braces) (closer _ 'braces)
+            (id _ 'class) (id _ 'Foo2) (opener _ 'braces) (closer _ 'braces)]{
   // this is a comment
   class Foo { }
   class Foo2 { }

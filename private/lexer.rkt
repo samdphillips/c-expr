@@ -133,9 +133,9 @@
 
       ;; [3.11] Separators
       ;;     openers
-      [(:or #\( #\{ #\[) ($token opener lexeme)]
+      [(:or #\( #\{ #\[) ($token opener (separator-name lexeme))]
       ;;     closers
-      [(:or #\) #\} #\]) ($token closer lexeme)]
+      [(:or #\) #\} #\]) ($token closer (separator-name lexeme))]
       ;;     other punctuators
       [(:or #\; #\,) ($token separator lexeme)]
 
@@ -156,6 +156,12 @@
       (with-handlers* ([exn:fail:read? (lambda (e) #f)])
         (lex-token peek-inp)))
     (lambda () (close-input-port peek-inp))))
+
+(define (separator-name s)
+  (match s
+   [(or "(" ")") 'parens]
+   [(or "[" "]") 'brackets]
+   [(or "{" "}") 'braces]))
 
 (define skip-trad-comment
   (let ()
