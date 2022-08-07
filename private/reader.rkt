@@ -5,60 +5,68 @@
          racket/syntax-srcloc
          syntax/srcloc)
 
-(define (stx-cons v-srcloc v vs)
-  (unless (syntax? vs)
-    (error 'stx-cons "expect syntax? as second arg got: ~s" vs))
-  (datum->syntax #f (cons v vs) (build-source-location v-srcloc (syntax-srcloc vs))))
+(require racket/contract
+         syntax/stx)
+
+(define/contract (stx-cons v vs)
+  (-> syntax? stx-list? syntax?)
+  (datum->syntax #f (cons v vs) (build-source-location v (syntax-srcloc vs))))
 
 (define stx-null (datum->syntax #f null #f))
 
-(define (read-group inp)
-  (define (lex) (lex-token inp))
-  (define (peek) (peek-token inp))
-  (define (read-literal)
-    (define tok (lex))
-    (stx-cons (token-srcloc tok) (token-value tok) (read-term)))
-  (define (read-id)
-    (define tok (lex))
-    (stx-cons (token-srcloc tok) (token-value tok) (read-term)))
-  (define (read-operator)
-    (define tok (lex))
-    (stx-cons (token-srcloc tok)
-              (list 'op (token-value tok))
-              (read-term)))
-  (define (read-compound)
-    (define tok (lex))
-    (define shape (token-value tok))
-    (define (match-closer? tok)
-      (match tok
-        [(closer _ (== shape)) #t]
-        [_ #f]))
-    (define (read-subgroups)
-      (define ptok (peek))
-      (cond
-        [(match-closer? ptok) (lex) stx-null]
-        ;; XXX fix exception
-        [(closer? ptok) (error 'read-group "wrong closer: ~a" ptok)]
-        [else
-          (define g (read-group inp))
-          (define g* (read-subgroups))
-          (stx-cons (syntax-srcloc g) g g*)]))
-    (define sub (read-subgroups))
-    (stx-cons #f (stx-cons #f shape sub) (read-term)))
-  (define (read-term)
-    (define tok (peek))
+(define (read-literal inp)
+  (define tok (lex-token inp))
+  (datum->syntax #f (token-value tok) (token-srcloc tok)))
+
+(define (read-id inp)
+  (define tok (lex-token inp))
+  (datum->syntax #f (token-value tok) (token-srcloc tok)))
+
+(define (read-operator inp)
+  (define tok (lex-token inp))
+  (datum->syntax #f (list 'op (token-value tok)) (token-srcloc tok)))
+
+(define (read-compound inp)
+  (define tok (lex-token inp))
+  (define shape (token-value tok))
+  (define (match-closer? tok)
+    (match tok
+      [(closer _ (== shape)) #t]
+      [_ #f]))
+  (define (read-subgroups)
+    (define ptok (peek-token inp))
     (cond
-      [(eof-object? tok) stx-null]
-      [(separator? tok) (lex) stx-null]
-      [(literal? tok)   (read-literal)]
-      [(id? tok)        (read-id)]
-      [(operator? tok)  (read-operator)]
-      [(opener? tok)    (read-compound)]
-      ;; XXX check if inside a compound
-      [(closer? tok)    stx-null]
+      [(match-closer? ptok) (lex-token inp) stx-null]
+      ;; XXX fix exception
+      [(closer? ptok) (error 'read-group "wrong closer: ~a" ptok)]
       [else
-        (error 'read-group "unknown token: ~a" tok)]))
-  (stx-cons #f 'group (read-term)))
+        (define g  (read-group inp))
+        (define g* (read-subgroups))
+        (stx-cons g g*)]))
+  (define sub (read-subgroups))
+  (datum->syntax #f (cons shape sub) (syntax-srcloc sub)))
+
+(define/contract (read-term* inp)
+  (-> input-port? stx-list?)
+  (define-syntax-rule (read-term+ rd) (stx-cons (rd inp) (read-term* inp)))
+  (define tok (peek-token inp))
+  (cond
+    [(eof-object? tok) stx-null]
+    [(separator? tok) (lex-token inp) stx-null]
+    [(literal? tok)   (read-term+ read-literal)]
+    [(id? tok)        (read-term+ read-id)]
+    [(operator? tok)  (read-term+ read-operator)]
+    [(opener? tok)    (read-term+ read-compound)]
+    [(closer? tok)    stx-null]
+    [else
+      ;; XXX exn type
+      ;; XXX the tok from peek-tok could be #f which means the lexer has an
+      ;;     error the program should expose
+      (error 'read-group "unknown token: ~a" tok)]))
+
+(define (read-group inp)
+  (define g* (read-term* inp))
+  (datum->syntax #f (cons 'group g*) g*))
 
 (module+ test
   (require racket/port
@@ -109,4 +117,6 @@
                               ({~datum group} 42)
                               ({~datum group} {~datum a_string}))) #t]
           [_ #f]))))
+
+  (check-exn exn:fail? (λ () (call-with-input-string ")" read-group)))
 )
