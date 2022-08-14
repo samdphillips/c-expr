@@ -5,11 +5,9 @@
          racket/syntax-srcloc
          syntax/srcloc)
 
-(require racket/contract
-         syntax/stx)
+(provide read-top)
 
-(define/contract (stx-cons v vs)
-  (-> syntax? stx-list? syntax?)
+(define (stx-cons v vs)
   (datum->syntax #f (cons v vs) (build-source-location v (syntax-srcloc vs))))
 
 (define stx-null (datum->syntax #f null #f))
@@ -58,13 +56,11 @@
       (define g* (read-group* inp group-closer?))
       (stx-cons g g*)]))
 
-(define/contract (read-group inp group-closer?)
-  (-> input-port? (-> (or/c eof-object? token?) boolean?) syntax?)
+(define (read-group inp group-closer?)
   (define g* (read-term* inp group-closer?))
   (datum->syntax #f (cons 'group g*) g*))
 
-(define/contract (read-term* inp group-closer?)
-  (-> input-port? (-> (or/c eof-object? token?) boolean?) stx-list?)
+(define (read-term* inp group-closer?)
   (define-syntax-rule (read-term+ rd) (stx-cons (rd inp) (read-term* inp group-closer?)))
   (define tok (peek-token inp))
   (cond
@@ -81,71 +77,3 @@
     [else
       ;; XXX exn type
       (error 'read-group "unknown token: ~a" tok)]))
-
-(module+ test
-  (require racket/port
-           rackunit
-           syntax/parse)
-  
-  (define-literal-set c-expr-litset
-    #:datum-literals (top group op parens) ())
-  
-  (test-begin
-    (let ([r (call-with-input-string "abc 123" read-top)])
-      (with-check-info (['read r])
-        (check-true
-          (syntax-parse r
-            #:literal-sets (c-expr-litset)
-            [(top (group {~datum abc} 123)) #t]
-            [_ #f])))))
-
-  (test-begin
-    (let ([r (call-with-input-string "123 + 456" read-top)])
-      (with-check-info (['read r])
-        (check-true
-          (syntax-parse r
-            #:literal-sets (c-expr-litset)
-            [(top (group 123 (op {~datum +}) 456)) #t]
-            [_ #f])))))
-
-  (test-begin
-    (let ([r (call-with-input-string "123, 456" read-top)])
-      (with-check-info (['read r])
-        (check-true
-          (syntax-parse r
-            #:literal-sets (c-expr-litset)
-            [(top (group 123) (group 456)) #t]
-            [_ #f])))))
-
-  (test-begin
-    (let ([r (call-with-input-string "123; 456" read-top)])
-      (with-check-info (['read r])
-        (check-true
-          (syntax-parse r
-            #:literal-sets (c-expr-litset)
-            [(top (group 123) (group 456)) #t]
-            [_ #f])))))
-
-  (test-begin
-    (let ([r (call-with-input-string "factorial(10)" read-top)])
-      (with-check-info (['read r])
-        (check-true
-          (syntax-parse r
-            #:literal-sets (c-expr-litset)
-            [(top (group {~datum factorial} (parens (group 10)))) #t]
-            [_ #f])))))
-
-  (test-begin
-    (let ([r (call-with-input-string "printf(\"%d %s\", 42, a_string);" read-top)])
-      (with-check-info (['read r])
-        (check-true
-          (syntax-parse r
-            #:literal-sets (c-expr-litset)
-            [(top (group {~datum printf}
-                         (parens (group "%d %s")
-                                 (group 42)
-                                 (group {~datum a_string})))) #t]
-            [_ #f])))))
-
-  (test-begin (check-exn exn:fail? (λ () (call-with-input-string ")" read-top))))
-)
