@@ -41,6 +41,7 @@
 
 (provide lex-token
          peek-token
+         token?
          token-srcloc
          token-value)
 
