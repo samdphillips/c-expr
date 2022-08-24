@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require c-expr/private/lexer
+(require c-expr/private/exn
+         c-expr/private/lexer
          racket/match
          racket/syntax-srcloc
          syntax/srcloc)
@@ -13,12 +14,10 @@
 (define stx-null (datum->syntax #f null #f))
 
 (define (wrong-closer-error tok)
-  ;; XXX fix exception
-  (error 'read-group "wrong closer: ~a" tok))
+  (raise-read-error (format "wrong closer: ~a" tok) (token-srcloc tok)))
 
 (define (unexpected-eof-error)
-  ;; XXX fix exception
-  (error 'read-group "unexpected eof"))
+  (raise-read-eof-error "unexpected eof"))
 
 (define (read-literal inp)
   (define tok (lex-token inp))
@@ -75,5 +74,4 @@
     ;; if tok is #f the lexer has an error, this will propagate it out
     [(not tok)           (lex-token inp)]
     [else
-      ;; XXX exn type
-      (error 'read-group "unknown token: ~a" tok)]))
+      (raise-read-error (format "unknown token: ~a" tok) (token-srcloc tok))]))
