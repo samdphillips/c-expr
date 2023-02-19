@@ -1,11 +1,15 @@
 #lang racket/base
 
-(require (for-syntax racket/base))
+(require (for-syntax racket/base)
+         syntax/parse/define)
 
-(provide #%module-begin
-         top)
+(provide (rename-out [module-begin #%module-begin]))
 
-(define-syntax top
+(define-syntax module-begin
+  (syntax-parser
+    #:datum-literals (top)
+    [(_ (top . body)) #'(#%module-begin (example-top . body))]))
+
+(define-syntax example-top
   (lambda (stx)
-    (displayln stx)
     (syntax-case stx () [(_ . xs) #'(quote xs)])))
