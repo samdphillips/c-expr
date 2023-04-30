@@ -1,9 +1,6 @@
 #lang racket/base
 
-(require (for-syntax enforest
-                     enforest/operator
-                     enforest/transformer
-                     racket/base
+(require (for-syntax racket/base
                      #;racket/format
                      syntax/parse)
          syntax/parse/define)
@@ -26,33 +23,21 @@
   (define-syntax-class :definition
     #:datum-literals (group)
     (pattern
-     (group def:id . t)
-     #:do [(define proc
-             (definition-transformer-ref
-               (syntax-local-value #'def (λ () #f))))]
-     #:fail-unless proc "definition"
-     #:do [(define-values (head-stx tail-stx) (proc #'(def . t)))]
-     #:attr parsed #`(begin #,head-stx (example-begin  #,@tail-stx))))
+      (group def:id . t)
+      #:do [(define proc
+              (definition-transformer-ref
+                (syntax-local-value #'def (λ () #f))))]
+      #:fail-unless proc "definition"
+      #:do [(define-values (head-stx tail-stx) (proc #'(def . t)))]
+      #:attr parsed #`(begin #,head-stx)
+      #:attr tail tail-stx))
 
   (define-syntax-class :formals
     #:datum-literals (parens group)
     #:attributes (parsed)
     (pattern
-     (parens (group name:id) ...)
-     #:attr parsed #'(name ...)))
-
-  (define (prefix-operator-ref v)
-    (and (prefix-operator? v) v))
-
-  (define (infix-operator-ref v)
-    (and (infix-operator? v) v))
-
-  (define-enforest
-    #:syntax-class :expression
-    #:prefix-operator-ref prefix-operator-ref
-    #:infix-operator-ref infix-operator-ref
-    )
-
+      (parens (group name:id) ...)
+      #:attr parsed #'(name ...)))
 )
 
 (define-syntax fn
@@ -64,12 +49,25 @@
                    (example-block body ...))
                #'tail)])))
 
+(define-syntax-parser example-block
+  [(_ e::expression)
+   #'(#%expression e.parsed)]
+  [(_ form . forms)
+   #:with parsed
+   (syntax-parse #'form
+     [e::definition #'(begin e.parsed (example-begin (group . e.tail)))]
+     [e::expression #'(#%expression e.parsed)])
+   #'(let () parsed (example-begin . forms))])
+
 (define-syntax (example-top stx)
   (syntax-parse stx
     [(_) #'(begin)]
     [(_ form . forms)
      #:with parsed
      (syntax-parse #'form
-       [e::definition #'(begin . e.parsed)]
+       #:datum-literals (group)
+       [(group) #'(begin)]
+       [e::definition
+        #'(begin e.parsed (example-top (group . e.tail)))]
        [e::expression #'(#%expression e.parsed)])
      #'(begin parsed (example-top . forms))]))
