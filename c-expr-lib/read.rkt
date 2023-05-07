@@ -26,4 +26,7 @@
   (define (read-syntax src inp)
     (with-syntax ([top (read-c-expr-syntax src inp)])
       (strip-context
-        #'(module mod racket/base 'top)))))
+        #'(module mod racket/base
+            (require racket/pretty)
+            (current-print (λ (v) (unless (void? v) (pretty-print v))))
+            'top)))))
