@@ -22,7 +22,8 @@
 
   (define-syntax-class :definition
     #:datum-literals (group)
-    (pattern
+    #:attributes (parsed tail)
+    [pattern
       (group def:id . t)
       #:do [(define proc
               (definition-transformer-ref
@@ -30,14 +31,22 @@
       #:fail-unless proc "definition"
       #:do [(define-values (head-stx tail-stx) (proc #'(def . t)))]
       #:attr parsed #`(begin #,head-stx)
-      #:attr tail tail-stx))
+      #:attr tail tail-stx])
 
   (define-syntax-class :formals
     #:datum-literals (parens group)
     #:attributes (parsed)
-    (pattern
+    [pattern
       (parens (group name:id) ...)
-      #:attr parsed #'(name ...)))
+      #:attr parsed #'(name ...)])
+
+  (define-syntax-class :expression
+    #:datum-literals (group)
+    #:attributes (parsed tail)
+    [pattern (group . g)
+
+     ]
+    )
 )
 
 (define-syntax fn
@@ -51,12 +60,14 @@
 
 (define-syntax-parser example-block
   [(_ e::expression)
-   #'(#%expression e.parsed)]
+   #'(let ()
+       (#%expression e.parsed)
+       (example-begin (group . e.tail)))]
   [(_ form . forms)
    #:with parsed
    (syntax-parse #'form
      [e::definition #'(begin e.parsed (example-begin (group . e.tail)))]
-     [e::expression #'(#%expression e.parsed)])
+     [e::expression #'(begin (#%expression e.parsed) (example-begin (group . e.tail)))])
    #'(let () parsed (example-begin . forms))])
 
 (define-syntax (example-top stx)
@@ -68,6 +79,11 @@
        #:datum-literals (group)
        [(group) #'(begin)]
        [e::definition
-        #'(begin e.parsed (example-top (group . e.tail)))]
-       [e::expression #'(#%expression e.parsed)])
-     #'(begin parsed (example-top . forms))]))
+        #'(begin
+            e.parsed
+            (example-top (group . e.tail)))]
+       [e::expression
+        #'(begin
+            (#%expression e.parsed)
+            (example-top (group . e.tail)))]
+     #'(begin parsed (example-top . forms)))]))
