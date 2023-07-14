@@ -1,11 +1,15 @@
 #lang racket/base
 
-(require (for-syntax racket/base
-                     #;racket/format
+(require (for-syntax enforest
+                     enforest/operator
+                     racket/base
                      syntax/parse)
          syntax/parse/define)
 
 (provide (rename-out [module-begin #%module-begin])
+         #%call
+         #%datum
+         #%literal
          fn)
 
 (define-syntax module-begin
@@ -23,8 +27,7 @@
   (define-syntax-class :definition
     #:datum-literals (group)
     #:attributes (parsed tail)
-    [pattern
-      (group def:id . t)
+    [pattern (group def:id . t)
       #:do [(define proc
               (definition-transformer-ref
                 (syntax-local-value #'def (λ () #f))))]
@@ -40,14 +43,52 @@
       (parens (group name:id) ...)
       #:attr parsed #'(name ...)])
 
-  (define-syntax-class :expression
+  #|
+  (struct block-expression (proc))
+
+  (define (block-expression-ref v)
+    (and (block-expression? v)
+         (block-expression-proc v)))
+
+  (define-syntax-class :block-expression
     #:datum-literals (group)
     #:attributes (parsed tail)
-    [pattern (group . g)
+    [pattern (group mac:id . g)
+      #:do [(define proc
+              (block-expression-ref
+               (syntax-local-value #'mac (λ () #f))))]
+      #:fail-unless proc "block expression"
+      #:do [(define-values (head-stx tail-stx) (proc #'(mac . g)))]
+      #:attr parsed head-stx
+      #:attr tail tail-stx])
+   |#
 
-     ]
-    )
+  (define-enforest
+    #:syntax-class :expression
+    #:prefix-operator-ref values
+    #:infix-operator-ref  values)
 )
+
+(define-syntax #%call
+  (infix-operator
+   #'#%call
+   null
+   'macro
+   (λ (lh rh)
+     (syntax-parse rh
+       #:datum-literals (parens)
+       [(#%call (parens rands::expression ...) . tail)
+        (values (quasisyntax/loc #'#%call (#,lh rands.parsed ...))
+                #'tail)]))
+   'none))
+
+(define-syntax #%literal
+  (prefix-operator
+   #'#%literal
+   null
+   'macro
+   (syntax-parser
+     [(_ v . tail) (values #'v #'tail)])))
 
 (define-syntax fn
   (definition-transformer
@@ -59,15 +100,12 @@
                #'tail)])))
 
 (define-syntax-parser example-block
-  [(_ e::expression)
-   #'(let ()
-       (#%expression e.parsed)
-       (example-begin (group . e.tail)))]
+  [(_ e::expression) #'e.parsed]
   [(_ form . forms)
    #:with parsed
    (syntax-parse #'form
      [e::definition #'(begin e.parsed (example-begin (group . e.tail)))]
-     [e::expression #'(begin (#%expression e.parsed) (example-begin (group . e.tail)))])
+     [e::expression #'(#%expression e.parsed)])
    #'(let () parsed (example-begin . forms))])
 
 (define-syntax (example-top stx)
@@ -82,8 +120,5 @@
         #'(begin
             e.parsed
             (example-top (group . e.tail)))]
-       [e::expression
-        #'(begin
-            (#%expression e.parsed)
-            (example-top (group . e.tail)))]
-     #'(begin parsed (example-top . forms)))]))
+       [e::expression #'(#%expression e.parsed)])
+     #'(begin parsed (example-top . forms))]))
