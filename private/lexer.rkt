@@ -93,7 +93,7 @@
       [(:+ whitespace) (lex-token input-port)]
       ;; comments
       [(:: "//" (:* (:~ #\newline))) (lex-token input-port)]
-      [(:: "/*") (skip-trad-comment input-port)]
+      [(:: "/*" (:* #\*)) (skip-trad-comment input-port)]
 
       ;; identifiers
       [(:: (:or #\$ #\_ alphabetic)

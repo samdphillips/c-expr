@@ -56,6 +56,11 @@
     a /* this is a comment here */ b
   }
 
+  @test-lex["traditional comment [3.7] not an operator"]{
+    /***
+    **/
+  }
+
   @test-lex["integer literals [3.10.1] - decimal"
             (literal _ 1234) (literal _ 123456)
             (literal _ 123) (literal _ 123)
