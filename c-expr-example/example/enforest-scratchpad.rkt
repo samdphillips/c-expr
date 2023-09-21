@@ -27,7 +27,8 @@
    'macro
    (syntax-parser
      #:datum-literals (parens)
-     [(_ v . tail) #:do [(displayln this-syntax)] (values #'v #'tail)])))
+     [(_ (parens e::expression) . tail)
+      (values #'e.parsed #'tail)])))
 
 (define-syntax #%call
   (infix-operator
@@ -48,6 +49,7 @@
    null
    'automatic
    (λ (lh rh op)
+     (displayln (list 'juxtapose lh rh op))
      #`(begin #,lh #,rh))
    'none))
 
@@ -91,9 +93,10 @@
   (syntax-parser
     [(_ e::expression) #'e.parsed]))
 
-#|
+
 (define a 32)
 (define b 32)
+
 
 (do-enforest
  (group
@@ -104,6 +107,6 @@
   (braces
    (group b))
   10))
-|#
 
-(do-enforest (group (parens (group 10))))
+#;
+(do-enforest (group (parens (group 10 (op +) a))))

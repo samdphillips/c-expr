@@ -6,11 +6,17 @@
                      syntax/parse)
          syntax/parse/define)
 
-(provide (rename-out [module-begin #%module-begin])
-         #%call
+(provide (rename-out [module-begin #%module-begin]
+                     [ex:== ==]
+                     [ex:*  *]
+                     [ex:-  -]
+                     [ex:fn fn]
+                     [ex:if if])
+         #%call         
          #%datum
          #%literal
-         fn)
+         ;#%juxtapose
+         )
 
 (define-syntax module-begin
   (syntax-parser
@@ -43,31 +49,31 @@
       (parens (group name:id) ...)
       #:attr parsed #'(name ...)])
 
-  #|
-  (struct block-expression (proc))
-
-  (define (block-expression-ref v)
-    (and (block-expression? v)
-         (block-expression-proc v)))
-
-  (define-syntax-class :block-expression
-    #:datum-literals (group)
-    #:attributes (parsed tail)
-    [pattern (group mac:id . g)
-      #:do [(define proc
-              (block-expression-ref
-               (syntax-local-value #'mac (λ () #f))))]
-      #:fail-unless proc "block expression"
-      #:do [(define-values (head-stx tail-stx) (proc #'(mac . g)))]
-      #:attr parsed head-stx
-      #:attr tail tail-stx])
-   |#
-
   (define-enforest
     #:syntax-class :expression
     #:prefix-operator-ref values
-    #:infix-operator-ref  values)
-)
+    #:infix-operator-ref  values))
+
+(define-syntax (example-top stx)
+  (syntax-parse stx
+    [(_) #'(begin)]
+    [(_ form . forms)
+     #:with parsed
+     (syntax-parse #'form
+       #:datum-literals (group)
+       [(group) #'(begin)]
+       [e::definition #'(begin e.parsed (example-top (group . e.tail)))]
+       [e::expression #'(#%expression e.parsed)])
+     #'(begin parsed (example-top . forms))]))
+
+(define-syntax-parser example-block
+  [(_ e::expression) #'e.parsed]
+  [(_ form . forms)
+   #:with parsed
+   (syntax-parse #'form
+     [e::definition #'(begin e.parsed (example-block (group . e.tail)))]
+     [e::expression #'(#%expression e.parsed)])
+   #'(let () parsed (example-block . forms))])
 
 (define-syntax #%call
   (infix-operator
@@ -90,7 +96,18 @@
    (syntax-parser
      [(_ v . tail) (values #'v #'tail)])))
 
-(define-syntax fn
+#;
+(define-syntax #%juxtapose
+  (infix-operator
+   #'#%juxtapose
+   null
+   'automatic
+   (λ (lh rh op)
+     (displayln (list 'juxtapose lh rh op))
+     #`(begin #,lh #,rh))
+   'none))
+
+(define-syntax ex:fn
   (definition-transformer
     (syntax-parser
       #:datum-literals (braces)
@@ -99,26 +116,48 @@
                    (example-block body ...))
                #'tail)])))
 
-(define-syntax-parser example-block
-  [(_ e::expression) #'e.parsed]
-  [(_ form . forms)
-   #:with parsed
-   (syntax-parse #'form
-     [e::definition #'(begin e.parsed (example-begin (group . e.tail)))]
-     [e::expression #'(#%expression e.parsed)])
-   #'(let () parsed (example-begin . forms))])
+(define-syntax ex:if
+  (prefix-operator
+   #'if
+   null
+   'macro
+   (syntax-parser
+     #:datum-literals (else parens braces)
+     [(_ (parens tst::expression)
+         (braces conseq-body ...)
+         else
+         (braces alt-body ...)
+         .
+         tail)
+      (values #'(if tst.parsed
+                    (example-block conseq-body ...)
+                    (example-block alt-body ...))
+              #'tail)])))
 
-(define-syntax (example-top stx)
-  (syntax-parse stx
-    [(_) #'(begin)]
-    [(_ form . forms)
-     #:with parsed
-     (syntax-parse #'form
-       #:datum-literals (group)
-       [(group) #'(begin)]
-       [e::definition
-        #'(begin
-            e.parsed
-            (example-top (group . e.tail)))]
-       [e::expression #'(#%expression e.parsed)])
-     #'(begin parsed (example-top . forms))]))
+(define-syntax ex:*
+  (infix-operator
+   #'*
+   null
+   'automatic
+   (λ (lh rh op)
+     (quasisyntax/loc op (* #,lh #,rh)))
+   'left))
+
+(define-syntax ex:-
+  (infix-operator
+   #'-
+   null
+   'automatic
+   (λ (lh rh op)
+     (quasisyntax/loc op (- #,lh #,rh)))
+   'left))
+
+
+(define-syntax ex:==
+  (infix-operator
+   #'==
+   null
+   'automatic
+   (λ (lh rh op)
+     (quasisyntax/loc op (= #,lh #,rh)))
+   'left))

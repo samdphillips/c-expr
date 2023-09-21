@@ -7,6 +7,7 @@
            [read-c-expr        (-> input-port? any)]
            [read-c-expr-syntax (-> any/c input-port? (or/c eof-object? syntax?))]))
 
+;; XXX: these don't appear to be returning eof correctly
 (define (read-c-expr inp)
   (syntax->datum
     (read-c-expr-syntax #f inp)))
