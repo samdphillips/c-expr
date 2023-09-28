@@ -33,15 +33,16 @@
 |#
 
 (require (prefix-in : parser-tools/lex-sre)
-         c-expr/private/exn
          (except-in parser-tools/lex token? token-value)
          racket/match
          racket/port
          syntax/srcloc
+         "exn.rkt"
          "lexer-sig.rkt"
+         "lexer-ext-sig.rkt"
          "token.rkt")
 
-(import)
+(import lexer-ext^)
 (export lexer^)
 
 (define-lex-abbrev hexdigit (:or numeric (:/ "AF" "af")))
@@ -112,9 +113,7 @@
        ($token operator (string->symbol lexeme))]
 
       ;; error
-      [any-char (raise-read-error
-                 (format "No match found for input starting with: ~s" lexeme)
-                 (->srcloc input-port start-pos))])))
+      [any-char (handle-unknown-lexeme lexeme start-pos input-port)])))
 
 (define (peek-token inp)
   (define peek-inp (peeking-input-port inp))
