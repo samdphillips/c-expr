@@ -105,7 +105,7 @@
   }
 
   @test-lex["separators [3.11]"
-            (separator _ ";") (separator _ ",")]{
+            (major-separator _ ";") (minor-separator _ ",")]{
     ; , 
   }
   

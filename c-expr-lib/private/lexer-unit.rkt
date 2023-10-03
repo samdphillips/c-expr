@@ -106,7 +106,8 @@
       ;;     closers
       [(:or #\) #\} #\]) ($token closer (separator-name lexeme))]
       ;;     other punctuators
-      [(:or #\; #\,) ($token separator lexeme)]
+      [#\; ($token major-separator lexeme)]
+      [#\, ($token minor-separator lexeme)]
 
       ;; [3.12] Operators
       [(:or (:** 1 2 #\.) (:+ (char-set "<>?/:!%^&*-+=|~")))
